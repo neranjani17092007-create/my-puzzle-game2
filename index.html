@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <!-- Mobile-friendly viewport -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <title>Grid Maze Puzzle</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            min-height: 100%;
+        }
+
+        body {
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #0d1117;
+            color: #ffffff;
+            font-family: Arial, Helvetica, sans-serif;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+
+        .game-container {
+            width: min(95vw, 650px);
+            max-width: 650px;
+            margin: 20px auto;
+            text-align: center;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: clamp(26px, 7vw, 34px);
+            color: #ffffff;
+        }
+
+        .subtitle {
+            margin-bottom: 16px;
+            color: #8b949e;
+            font-size: clamp(12px, 3.5vw, 15px);
+        }
+
+        .game-info {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin-bottom: 12px;
+        }
+
+        .info-item {
+            font-size: clamp(12px, 3.5vw, 15px);
+            color: #c9d1d9;
+        }
+
+        .info-item span {
+            color: #58a6ff;
+            font-weight: bold;
+        }
+
+        /* 
+           Canvas is 600x600 internally but scales down
+           automatically to fit smaller phone screens.
+        */
+        canvas {
+            display: block;
+            width: 100%;
+            max-width: 600px;
+            height: auto;
+            aspect-ratio: 1 / 1;
+            margin: 0 auto;
+            background: #11161d;
+            border: 2px solid #30363d;
+            border-radius: 10px;
+            touch-action: none;
+        }
+
+        .controls {
+            margin-top: 12px;
+            color: #8b949e;
+            font-size: clamp(12px, 3.5vw, 14px);
+        }
+
+        /* ========================================================
+           VIRTUAL D-PAD
+           ======================================================== */
+
+        .dpad {
+            width: 180px;
+            height: 180px;
+            margin: 18px auto 10px;
+            display: grid;
+            grid-template-columns: 60px 60px 60px;
+            grid-template-rows: 60px 60px 60px;
+            justify-content: center;
+            align-items: center;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .dpad-button {
+            width: 58px;
+            height: 58px;
+            border: 1px solid #3b4654;
+            border-radius: 12px;
+            background: #21262d;
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35);
+            transition:
+                background 0.1s,
+                transform 0.1s;
+        }
+
+        .dpad-button:hover {
+            background: #30363d;
+        }
+
+        .dpad-button:active,
+        .dpad-button.pressed {
+            background: #58a6ff;
+            color: #0d1117;
+            transform: scale(0.94);
+        }
+
+        .dpad-up {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .dpad-left {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .dpad-right {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
+        .dpad-down {
+            grid-column: 2;
+            grid-row: 3;
+        }
+
+        /* ========================================================
+           GAME BUTTONS
+           ======================================================== */
+
+        .buttons {
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .game-button {
+            border: none;
+            border-radius: 8px;
+            padding: 11px 20px;
+            min-height: 44px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            background: #21262d;
+            color: #ffffff;
+            border: 1px solid #30363d;
+            transition: background 0.2s;
+            touch-action: manipulation;
+        }
+
+        .game-button:hover {
+            background: #30363d;
+        }
+
+        #restartButton {
+            background: #238636;
+            border-color: #2ea043;
+        }
+
+        #restartButton:hover {
+            background: #2ea043;
+        }
+
+        #message {
+            min-height: 25px;
+            margin-top: 10px;
+            color: #58a6ff;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        /* ========================================================
+           SMALL PHONE SCREENS
+           ======================================================== */
+
+        @media (max-width: 480px) {
+
+            .game-container {
+                width: 94vw;
+                margin: 12px auto;
+            }
+
+            .subtitle {
+                margin-bottom: 10px;
+            }
+
+            .game-info {
+                padding: 9px 10px;
+                margin-bottom: 10px;
+            }
+
+            .dpad {
+                width: 174px;
+                height: 174px;
+                margin-top: 12px;
+            }
+
+            .dpad-button {
+                width: 56px;
+                height: 56px;
+                font-size: 25px;
+            }
+
+            .buttons {
+                margin-top: 6px;
+            }
+        }
+
+        /* Very short screens */
+        @media (max-height: 700px) {
+
+            .game-container {
+                margin: 8px auto;
+            }
+
+            h1 {
+                margin-bottom: 3px;
+            }
+
+            .subtitle {
+                margin-bottom: 7px;
+            }
+
+            .dpad {
+                margin-top: 8px;
+                margin-bottom: 4px;
+            }
+
+            .controls {
+                display: none;
+            }
+
+            #message {
+                margin-top: 4px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="game-container">
+
+    <h1>Grid Maze</h1>
+
+    <div class="subtitle">
+        Reach the green goal without crossing the blue walls.
+    </div>
+
+    <div class="game-info">
+        <div class="info-item">
+            Level: <span id="levelDisplay">1</span>
+        </div>
+
+        <div class="info-item">
+            Moves: <span id="movesDisplay">0</span>
+        </div>
+
+        <div class="info-item">
+            Status: <span id="statusDisplay">Playing</span>
+        </div>
+    </div>
+
+    <!-- ========================================================
+         GAME CANVAS
+         ======================================================== -->
+
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+
+    <div class="controls">
+        Desktop: use <b>Arrow Keys</b> to move.
+    </div>
+
+    <!-- ========================================================
+         MOBILE VIRTUAL D-PAD
+         ======================================================== -->
+
+    <div class="dpad">
+
+        <button
+            class="dpad-button dpad-up"
+            id="upButton"
+            aria-label="Move Up">
+            ▲
+        </button>
+
+        <button
+            class="dpad-button dpad-left"
+            id="leftButton"
+            aria-label="Move Left">
+            ◀
+        </button>
+
+        <button
+            class="dpad-button dpad-right"
+            id="rightButton"
+            aria-label="Move Right">
+            ▶
+        </button>
+
+        <button
+            class="dpad-button dpad-down"
+            id="downButton"
+            aria-label="Move Down">
+            ▼
+        </button>
+
+    </div>
+
+    <!-- ========================================================
+         GAME CONTROL BUTTONS
+         ======================================================== -->
+
+    <div class="buttons">
+
+        <button
+            class="game-button"
+            id="restartButton">
+            Restart Level
+        </button>
+
+        <button
+            class="game-button"
+            id="resetButton">
+            Reset Game
+        </button>
+
+    </div>
+
+    <div id="message"></div>
+
+</div>
+
+
+<script>
+
+    // ============================================================
+    // CANVAS SETUP
+    // ============================================================
+
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const levelDisplay =
+        document.getElementById("levelDisplay");
+
+    const movesDisplay =
+        document.getElementById("movesDisplay");
+
+    const statusDisplay =
+        document.getElementById("statusDisplay");
+
+    const message =
+        document.getElementById("message");
+
+    const restartButton =
+        document.getElementById("restartButton");
+
+    const resetButton =
+        document.getElementById("resetButton");
+
+
+    // ============================================================
+    // GAME SETTINGS
+    // ============================================================
+
+    const TILE_SIZE = 60;
+
+    let currentLevel = 0;
+    let moves = 0;
+    let gameWon = false;
+
+
+    // ============================================================
+    // LEVEL DATA
+    //
+    // 0 = empty space
+    // 1 = blue wall
+    // ============================================================
+
+    const levels = [
+
+        // LEVEL 1
+        [
+            [1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,0,0,0,0,0,1],
+            [1,0,1,1,1,0,1,1,0,1],
+            [1,0,1,0,0,0,0,1,0,1],
+            [1,0,1,0,1,1,0,1,0,1],
+            [1,0,0,0,1,0,0,1,0,1],
+            [1,0,1,0,1,0,1,1,0,1],
+            [1,0,1,0,0,0,0,0,0,1],
+            [1,0,0,0,1,1,1,1,0,1],
+            [1,1,1,1,1,1,1,1,1,1]
+        ],
+
+        // LEVEL 2
+        [
+            [1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,1,0,0,0,0,1],
+            [1,0,1,0,1,0,1,1,0,1],
+            [1,0,1,0,0,0,0,1,0,1],
+            [1,0,1,1,1,1,0,1,0,1],
+            [1,0,0,0,0,0,0,1,0,1],
+            [1,1,1,0,1,1,1,1,0,1],
+            [1,0,0,0,0,0,0,0,0,1],
+            [1,0,1,1,1,1,1,1,0,1],
+            [1,1,1,1,1,1,1,1,1,1]
+        ],
+
+        // LEVEL 3
+        [
+            [1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,0,1,0,0,0,1],
+            [1,0,1,1,0,1,0,1,0,1],
+            [1,0,0,1,0,0,0,1,0,1],
+            [1,1,0,1,1,1,0,1,0,1],
+            [1,0,0,0,0,0,0,1,0,1],
+            [1,0,1,1,1,1,1,1,0,1],
+            [1,0,0,0,0,0,0,0,0,1],
+            [1,1,1,1,1,1,1,1,0,1],
+            [1,1,1,1,1,1,1,1,1,1]
+        ]
+    ];
+
+
+    // ============================================================
+    // PLAYER AND GOAL
+    // ============================================================
+
+    let player = {
+        row: 1,
+        col: 1
+    };
+
+    let goal = {
+        row: 8,
+        col: 8
+    };
+
+
+    // ============================================================
+    // INITIALIZE LEVEL
+    // ============================================================
+
+    function initializeLevel() {
+
+        moves = 0;
+        gameWon = false;
+
+        message.textContent = "";
+
+        statusDisplay.textContent = "Playing";
+
+        const level = levels[currentLevel];
+
+        player = {
+            row: 1,
+            col: 1
+        };
+
+        goal = {
+            row: level.length - 2,
+            col: level[0].length - 2
+        };
+
+        updateUI();
+        drawGame();
+    }
+
+
+    // ============================================================
+    // DRAW GAME
+    // ============================================================
+
+    function drawGame() {
+
+        const level = levels[currentLevel];
+
+        ctx.clearRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+
+        // --------------------------------------------------------
+        // DRAW GRID
+        // --------------------------------------------------------
+
+        for (let row = 0; row < level.length; row++) {
+
+            for (let col = 0; col < level[row].length; col++) {
+
+                const x = col * TILE_SIZE;
+                const y = row * TILE_SIZE;
+
+
+                // Empty tile
+                ctx.fillStyle = "#11161d";
+
+                ctx.fillRect(
+                    x,
+                    y,
+                    TILE_SIZE,
+                    TILE_SIZE
+                );
+
+
+                // ------------------------------------------------
+                // BLUE WALL
+                // ------------------------------------------------
+
+                if (level[row][col] === 1) {
+
+                    ctx.fillStyle = "#2472c8";
+
+                    ctx.fillRect(
+                        x + 3,
+                        y + 3,
+                        TILE_SIZE - 6,
+                        TILE_SIZE - 6
+                    );
+
+                    ctx.fillStyle = "#3d8de0";
+
+                    ctx.fillRect(
+                        x + 7,
+                        y + 7,
+                        TILE_SIZE - 14,
+                        4
+                    );
+                }
+
+
+                // ------------------------------------------------
+                // GRID LINES
+                // ------------------------------------------------
+
+                ctx.strokeStyle = "#202832";
+                ctx.lineWidth = 1;
+
+                ctx.strokeRect(
+                    x,
+                    y,
+                    TILE_SIZE,
+                    TILE_SIZE
+                );
+            }
+        }
+
+
+        // ========================================================
+        // DRAW GREEN GOAL
+        // ========================================================
+
+        const goalX = goal.col * TILE_SIZE;
+        const goalY = goal.row * TILE_SIZE;
+
+        ctx.fillStyle = "#22c55e";
+
+        ctx.fillRect(
+            goalX + 8,
+            goalY + 8,
+            TILE_SIZE - 16,
+            TILE_SIZE - 16
+        );
+
+        ctx.fillStyle = "#4ade80";
+
+        ctx.fillRect(
+            goalX + 13,
+            goalY + 13,
+            TILE_SIZE - 26,
+            5
+        );
+
+
+        // ========================================================
+        // DRAW RED PLAYER
+        // ========================================================
+
+        const playerX = player.col * TILE_SIZE;
+        const playerY = player.row * TILE_SIZE;
+
+        ctx.fillStyle = "#ef4444";
+
+        ctx.fillRect(
+            playerX + 8,
+            playerY + 8,
+            TILE_SIZE - 16,
+            TILE_SIZE - 16
+        );
+
+        ctx.fillStyle = "#f87171";
+
+        ctx.fillRect(
+            playerX + 13,
+            playerY + 13,
+            TILE_SIZE - 26,
+            5
+        );
+    }
+
+
+    // ============================================================
+    // MOVE PLAYER
+    // ============================================================
+
+    function movePlayer(rowChange, colChange) {
+
+        if (gameWon) {
+            return;
+        }
+
+        const level = levels[currentLevel];
+
+        const newRow = player.row + rowChange;
+        const newCol = player.col + colChange;
+
+
+        // --------------------------------------------------------
+        // CHECK BOUNDARIES
+        // --------------------------------------------------------
+
+        if (
+            newRow < 0 ||
+            newRow >= level.length ||
+            newCol < 0 ||
+            newCol >= level[0].length
+        ) {
+            return;
+        }
+
+
+        // --------------------------------------------------------
+        // CHECK BLUE WALL
+        // --------------------------------------------------------
+
+        if (level[newRow][newCol] === 1) {
+            return;
+        }
+
+
+        // --------------------------------------------------------
+        // MOVE
+        // --------------------------------------------------------
+
+        player.row = newRow;
+        player.col = newCol;
+
+        moves++;
+
+        updateUI();
+        drawGame();
+
+        checkGoal();
+    }
+
+
+    // ============================================================
+    // CHECK GOAL
+    // ============================================================
+
+    function checkGoal() {
+
+        if (
+            player.row === goal.row &&
+            player.col === goal.col
+        ) {
+
+            gameWon = true;
+
+            statusDisplay.textContent = "Complete";
+
+            message.textContent = "Level complete!";
+
+            setTimeout(function() {
+                nextLevel();
+            }, 700);
+        }
+    }
+
+
+    // ============================================================
+    // NEXT LEVEL
+    // ============================================================
+
+    function nextLevel() {
+
+        if (currentLevel < levels.length - 1) {
+
+            currentLevel++;
+
+            initializeLevel();
+
+        } else {
+
+            message.textContent =
+                "You completed every level!";
+
+            statusDisplay.textContent = "Finished";
+
+            gameWon = true;
+        }
+    }
+
+
+    // ============================================================
+    // RESTART CURRENT LEVEL
+    // ============================================================
+
+    function restartLevel() {
+        initializeLevel();
+    }
+
+
+    // ============================================================
+    // RESET ENTIRE GAME
+    // ============================================================
+
+    function resetGame() {
+
+        currentLevel = 0;
+
+        initializeLevel();
+    }
+
+
+    // ============================================================
+    // UPDATE UI
+    // ============================================================
+
+    function updateUI() {
+
+        levelDisplay.textContent =
+            currentLevel + 1;
+
+        movesDisplay.textContent =
+            moves;
+    }
+
+
+    // ============================================================
+    // DESKTOP KEYBOARD CONTROLS
+    // ============================================================
+
+    document.addEventListener("keydown", function(event) {
+
+        const key = event.key;
+
+        if (
+            key === "ArrowUp" ||
+            key === "ArrowDown" ||
+            key === "ArrowLeft" ||
+            key === "ArrowRight"
+        ) {
+            event.preventDefault();
+        }
+
+
+        if (key === "ArrowUp") {
+
+            movePlayer(-1, 0);
+
+        } else if (key === "ArrowDown") {
+
+            movePlayer(1, 0);
+
+        } else if (key === "ArrowLeft") {
+
+            movePlayer(0, -1);
+
+        } else if (key === "ArrowRight") {
+
+            movePlayer(0, 1);
+        }
+
+    });
+
+
+    // ============================================================
+    // MOBILE D-PAD
+    // ============================================================
+
+    const upButton =
+        document.getElementById("upButton");
+
+    const downButton =
+        document.getElementById("downButton");
+
+    const leftButton =
+        document.getElementById("leftButton");
+
+    const rightButton =
+        document.getElementById("rightButton");
+
+
+    // ------------------------------------------------------------
+    // TOUCHSTART HANDLER
+    // ------------------------------------------------------------
+
+    upButton.addEventListener(
+        "touchstart",
+        function(event) {
+
+            event.preventDefault();
+
+            pressButton(upButton);
+
+            movePlayer(-1, 0);
+
+        },
+        { passive: false }
+    );
+
+
+    downButton.addEventListener(
+        "touchstart",
+        function(event) {
+
+            event.preventDefault();
+
+            pressButton(downButton);
+
+            movePlayer(1, 0);
+
+        },
+        { passive: false }
+    );
+
+
+    leftButton.addEventListener(
+        "touchstart",
+        function(event) {
+
+            event.preventDefault();
+
+            pressButton(leftButton);
+
+            movePlayer(0, -1);
+
+        },
+        { passive: false }
+    );
+
+
+    rightButton.addEventListener(
+        "touchstart",
+        function(event) {
+
+            event.preventDefault();
+
+            pressButton(rightButton);
+
+            movePlayer(0, 1);
+
+        },
+        { passive: false }
+    );
+
+
+    // ------------------------------------------------------------
+    // ALSO SUPPORT MOUSE/CLICK
+    //
+    // This keeps the D-pad usable on desktop browsers too.
+    // ------------------------------------------------------------
+
+    upButton.addEventListener(
+        "click",
+        function() {
+            movePlayer(-1, 0);
+        }
+    );
+
+    downButton.addEventListener(
+        "click",
+        function() {
+            movePlayer(1, 0);
+        }
+    );
+
+    leftButton.addEventListener(
+        "click",
+        function() {
+            movePlayer(0, -1);
+        }
+    );
+
+    rightButton.addEventListener(
+        "click",
+        function() {
+            movePlayer(0, 1);
+        }
+    );
+
+
+    // ------------------------------------------------------------
+    // BUTTON PRESS VISUAL EFFECT
+    // ------------------------------------------------------------
+
+    function pressButton(button) {
+
+        button.classList.add("pressed");
+
+        setTimeout(function() {
+
+            button.classList.remove("pressed");
+
+        }, 120);
+    }
+
+
+    // ============================================================
+    // GAME BUTTONS
+    // ============================================================
+
+    restartButton.addEventListener(
+        "click",
+        restartLevel
+    );
+
+    resetButton.addEventListener(
+        "click",
+        resetGame
+    );
+
+
+    // ============================================================
+    // START GAME
+    // ============================================================
+
+    initializeLevel();
+
+</script>
+
+</body>
+</html>
